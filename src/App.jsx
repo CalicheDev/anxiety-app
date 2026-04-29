@@ -26,8 +26,12 @@ const theme = {
 const INITIAL_STATE = {
   screen: "home",
   profile: { name: "", streak: 0, totalSessions: 0, joinDate: null },
-  logs: [],       // { date, level, triggers, mood, notes, techniques }
+  logs: [],
   currentCrisis: false,
+  tasks: [],
+  taskLogs: [],
+  totalPoints: 0,
+  awardedPeriods: [],
 };
 
 const ANXIETY_TECHNIQUES = [
@@ -246,6 +250,15 @@ const GlobalStyle = () => (
     @keyframes crisis-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(248,81,73,0.4); }
       50%       { box-shadow: 0 0 0 12px rgba(248,81,73,0); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+    @keyframes celebrate-pop {
+      0%   { transform: scale(0.6); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     .fade-up { animation: fadeUp 0.4s ease both; }
@@ -1648,12 +1661,861 @@ function LearnScreen() {
   );
 }
 
+// ─── Constantes de Objetivos ────────────────────────────────────────────────────
+const TASK_CATEGORIES = [
+  { id: "TCC",          full: "Terapia Cognitivo-Conductual", icon: "🔄", color: theme.accent,    colorSoft: theme.accentSoft,  desc: "Cambia patrones de pensamiento y comportamiento que generan ansiedad" },
+  { id: "ACT",          full: "Aceptación y Compromiso",      icon: "🌿", color: theme.teal,      colorSoft: theme.tealSoft,    desc: "Acepta emociones difíciles y actúa conforme a tus valores reales" },
+  { id: "DBT",          full: "Dialéctico-Conductual",        icon: "⚖️", color: theme.amber,     colorSoft: theme.amberSoft,   desc: "Regula emociones intensas y mejora relaciones interpersonales" },
+  { id: "Neurociencia", full: "Neurociencia Aplicada",        icon: "🧠", color: theme.violet,    colorSoft: theme.violetSoft,  desc: "Regula tu sistema nervioso autónomo con base científica sólida" },
+  { id: "Hipnoterapia", full: "Hipnoterapia Guiada",          icon: "🌀", color: theme.rose,      colorSoft: theme.roseSoft,    desc: "Reprograma el subconsciente para reducir la ansiedad crónica" },
+  { id: "Mindfulness",  full: "Mindfulness / MBSR",           icon: "🧘", color: "#56D364",       colorSoft: "rgba(86,211,100,0.12)", desc: "Atención plena para silenciar el ruido mental y el estrés" },
+  { id: "Personalizada",full: "Tarea personalizada",          icon: "✨", color: theme.textMuted, colorSoft: theme.surfaceAlt,  desc: "Crea tu propia práctica adaptada a tus necesidades y caso particular" },
+];
+
+const TASK_SUGGESTIONS = [
+  // ── TCC ─────────────────────────────────────────────────────────────────────
+  { id: "tcc-thought-record", category: "TCC", icon: "📝", title: "Diario de pensamientos",    desc: "Identifica y desafía pensamientos automáticos negativos con evidencia real",             science: "Reduce distorsiones cognitivas hasta un 60% — Beck, 1979",                                          period: "diario",  targetAmount: 1,  unit: "sesión",    duration: "15 min",   points: 10, difficulty: "Fácil" },
+  { id: "tcc-exposure",       category: "TCC", icon: "🚪", title: "Exposición gradual",         desc: "Enfrenta situaciones evitadas de forma progresiva y controlada",                        science: "La evitación mantiene la ansiedad; la exposición la extingue — Wolpe",                              period: "semanal", targetAmount: 2,  unit: "sesiones",  duration: "30 min",   points: 25, difficulty: "Moderado" },
+  { id: "tcc-activation",     category: "TCC", icon: "🎨", title: "Activación conductual",      desc: "Realiza 1 actividad placentera al día para romper el ciclo de retirada emocional",      science: "Aumenta dopamina y autoeficacia; interrumpe espirales ansioso-depresivas",                           period: "diario",  targetAmount: 1,  unit: "actividad", duration: "20 min",   points: 10, difficulty: "Fácil" },
+  // ── ACT ─────────────────────────────────────────────────────────────────────
+  { id: "act-values",         category: "ACT", icon: "🧭", title: "Práctica de valores",         desc: "Reflexiona sobre lo que más importa y realiza una acción alineada con ello",            science: "Alinear acción con valores reduce angustia existencial — Hayes, 1999",                               period: "semanal", targetAmount: 1,  unit: "sesión",    duration: "20 min",   points: 20, difficulty: "Moderado" },
+  { id: "act-defusion",       category: "ACT", icon: "☁️", title: "Defusión cognitiva",          desc: "Observa tus pensamientos como nubes pasajeras sin aferrarte ni rechazarlos",            science: "Reduce el impacto de pensamientos intrusivos sin suprimirlos — Hayes",                               period: "diario",  targetAmount: 10, unit: "minutos",   duration: "10 min",   points: 10, difficulty: "Fácil" },
+  { id: "act-committed",      category: "ACT", icon: "🎯", title: "Acción comprometida",         desc: "Realiza una acción alineada con tus valores aunque sientas malestar emocional",         science: "El compromiso con valores genera resiliencia y autoestima genuina",                                  period: "diario",  targetAmount: 1,  unit: "acción",    duration: "Variable", points: 15, difficulty: "Moderado" },
+  // ── DBT ─────────────────────────────────────────────────────────────────────
+  { id: "dbt-tipp",           category: "DBT", icon: "🌡️", title: "Habilidad TIPP",              desc: "Temperatura fría, Intensidad física, Respiración pausada, Relajación progresiva",       science: "Cambia la química cerebral rápidamente en crisis emocional — Linehan",                               period: "diario",  targetAmount: 1,  unit: "práctica",  duration: "10 min",   points: 15, difficulty: "Fácil" },
+  { id: "dbt-mindfulness",    category: "DBT", icon: "👁️", title: "Mindfulness DBT",             desc: "Observa, describe y participa sin juzgar. Enfócate en el momento presente efectivo",    science: "Núcleo de DBT: aumenta tolerancia al malestar — Linehan, 1993",                                     period: "diario",  targetAmount: 10, unit: "minutos",   duration: "10 min",   points: 10, difficulty: "Fácil" },
+  { id: "dbt-emotion-reg",    category: "DBT", icon: "🎛️", title: "Regulación emocional",        desc: "Nombra tus emociones y reduce vulnerabilidad: sueño, alimentación, ejercicio",          science: "Nombrar emociones reduce activación amigdalar hasta 50% — Lieberman, 2007",                         period: "diario",  targetAmount: 1,  unit: "registro",  duration: "10 min",   points: 10, difficulty: "Fácil" },
+  // ── Neurociencia ─────────────────────────────────────────────────────────────
+  { id: "neuro-cardiac",      category: "Neurociencia", icon: "💗", title: "Coherencia cardíaca",   desc: "Inhala 5 seg, exhala 5 seg durante 5 min — repite 3 veces al día",                   science: "Regula el SNA y reduce cortisol significativamente — HeartMath Institute",                          period: "diario",  targetAmount: 3,  unit: "sesiones",  duration: "5 min c/u", points: 20, difficulty: "Fácil" },
+  { id: "neuro-vagus",        category: "Neurociencia", icon: "⚡", title: "Estimulación vagal",    desc: "Humming, agua fría en el cuello, cantar o gargarismos profundos",                     science: "El nervio vago es el freno del sistema simpático — Porges, 2011",                                   period: "diario",  targetAmount: 1,  unit: "práctica",  duration: "5 min",    points: 10, difficulty: "Fácil" },
+  { id: "neuro-nsdr",         category: "Neurociencia", icon: "😴", title: "NSDR / Yoga Nidra",    desc: "Non-Sleep Deep Rest: relajación profunda consciente para restaurar dopamina",          science: "Restaura dopamina basal y reduce cortisol en 20 min — Huberman Lab, Stanford",                     period: "diario",  targetAmount: 20, unit: "minutos",   duration: "20 min",   points: 20, difficulty: "Fácil" },
+  { id: "neuro-sunlight",     category: "Neurociencia", icon: "☀️", title: "Luz solar matutina",   desc: "Exponerte a luz natural en los primeros 30 min del día sin pantallas",                  science: "Sincroniza ritmo circadiano y optimiza serotonina/dopamina — Huberman",                            period: "diario",  targetAmount: 10, unit: "minutos",   duration: "10–30 min",points: 10, difficulty: "Fácil" },
+  // ── Hipnoterapia ─────────────────────────────────────────────────────────────
+  { id: "hypno-relaxation",   category: "Hipnoterapia", icon: "🌀", title: "Relajación hipnótica", desc: "Inducción autónoma: cuenta regresiva 10-1, visualización de lugar seguro interno",     science: "El estado hipnótico reduce actividad amigdalar y corteza cingulada posterior — Raz, 2005",         period: "diario",  targetAmount: 1,  unit: "sesión",    duration: "20 min",   points: 20, difficulty: "Moderado" },
+  { id: "hypno-anchor",       category: "Hipnoterapia", icon: "⚓", title: "Anclaje positivo",     desc: "Crea un anclaje sensorial (gesto + emoción) para activar calma en momentos difíciles", science: "Programación neurolingüística aplicada — Bandler y Grinder, 1975",                                 period: "semanal", targetAmount: 3,  unit: "prácticas", duration: "15 min",   points: 20, difficulty: "Moderado" },
+  // ── Mindfulness ──────────────────────────────────────────────────────────────
+  { id: "mindful-meditation", category: "Mindfulness",  icon: "🧘", title: "Meditación plena",    desc: "Observa el flujo de pensamientos sin juzgar, con foco en la respiración",              science: "MBSR reduce ansiedad un 58% — Hofmann et al., 2010, metaanálisis de 39 estudios",                 period: "diario",  targetAmount: 20, unit: "minutos",   duration: "20 min",   points: 20, difficulty: "Moderado" },
+  { id: "mindful-walk",       category: "Mindfulness",  icon: "🚶", title: "Caminata consciente",  desc: "Camina prestando atención a cada paso, sensaciones y entorno sin juzgar nada",         science: "Combina movimiento y mindfulness para efecto ansiolítico doble",                                    period: "diario",  targetAmount: 15, unit: "minutos",   duration: "15 min",   points: 15, difficulty: "Fácil" },
+];
+
+const LEVELS = [
+  { level: 1, title: "Aprendiz",     minPoints: 0,    icon: "🌱", color: theme.teal },
+  { level: 2, title: "Practicante",  minPoints: 100,  icon: "🌿", color: theme.accent },
+  { level: 3, title: "Comprometido", minPoints: 300,  icon: "🌳", color: theme.violet },
+  { level: 4, title: "Maestro",      minPoints: 600,  icon: "⭐", color: theme.amber },
+  { level: 5, title: "Sabio",        minPoints: 1000, icon: "🔮", color: theme.rose },
+];
+
+const ICON_OPTIONS = ["✨","🎯","💪","🧘","🌅","📝","🏃","💤","🌿","⭐","💙","🎨","📖","🌊","🔮","🧠","💗","☀️","🌱","🎵","🦋","🍃","⚡","🌺","🏔️"];
+
+// ─── Helpers de objetivos ───────────────────────────────────────────────────────
+function genId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function getWeekKey(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  const wn = 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${d.getFullYear()}-W${String(wn).padStart(2, "0")}`;
+}
+
+function getMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPeriodKey(period) {
+  if (period === "diario")  return today();
+  if (period === "semanal") return getWeekKey();
+  if (period === "mensual") return getMonthKey();
+  return "lifetime";
+}
+
+function getTaskProgress(task, taskLogs) {
+  const logs = taskLogs.filter(l => l.taskId === task.id);
+  if (task.period === "diario") {
+    const t = today();
+    return logs.filter(l => l.date === t).reduce((s, l) => s + l.amount, 0);
+  }
+  if (task.period === "semanal") {
+    const wk = getWeekKey();
+    return logs.filter(l => getWeekKey(new Date(l.date + "T12:00:00")) === wk).reduce((s, l) => s + l.amount, 0);
+  }
+  if (task.period === "mensual") {
+    const mk = getMonthKey();
+    return logs.filter(l => l.date.startsWith(mk)).reduce((s, l) => s + l.amount, 0);
+  }
+  return logs.reduce((s, l) => s + l.amount, 0);
+}
+
+function getCurrentLevel(points) {
+  let lvl = LEVELS[0];
+  for (const l of LEVELS) { if (points >= l.minPoints) lvl = l; }
+  return lvl;
+}
+
+function getNextLevel(points) {
+  return LEVELS.find(l => l.minPoints > points) || null;
+}
+
+function getCategoryInfo(id) {
+  return TASK_CATEGORIES.find(c => c.id === id) || TASK_CATEGORIES[TASK_CATEGORIES.length - 1];
+}
+
+function fmtMonthName(date = new Date()) {
+  return date.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+}
+
+// ─── Modal: Celebración ────────────────────────────────────────────────────────
+const CELEBRATION_MSGS = [
+  "Tu sistema nervioso te lo agradece 🧠",
+  "Cada práctica recablea tu cerebro hacia la calma",
+  "La neuroplasticidad está de tu lado",
+  "Estás construyendo resiliencia real",
+  "Tu corteza prefrontal se fortalece con cada logro",
+  "La dopamina que generaste hoy es tuya",
+  "Pequeños pasos, cambios profundos en el cerebro",
+  "Estás rompiendo el ciclo de la ansiedad, logro a logro",
+];
+
+function CelebrationModal({ task, pointsEarned, totalPoints, onClose }) {
+  const msg = CELEBRATION_MSGS[Math.floor(Math.random() * CELEBRATION_MSGS.length)];
+  const lvl = getCurrentLevel(totalPoints);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(13,17,23,0.93)",
+      zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 370, textAlign: "center",
+        background: theme.surface, border: `1px solid ${theme.teal}55`,
+        borderRadius: 20, padding: "36px 24px",
+        animation: "celebrate-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both",
+      }}>
+        <div style={{ fontSize: 64, animation: "float 2s ease-in-out infinite", display: "block", marginBottom: 14 }}>🎉</div>
+        <h2 style={{ fontFamily: "Fraunces", fontSize: 22, fontWeight: 600, color: theme.teal, marginBottom: 6 }}>
+          ¡Objetivo completado!
+        </h2>
+        <p style={{ fontSize: 15, fontWeight: 600, color: theme.text, marginBottom: 4 }}>{task.title}</p>
+        <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 22, lineHeight: 1.65 }}>{msg}</p>
+
+        <div style={{
+          background: theme.tealSoft, border: `1px solid ${theme.teal}44`,
+          borderRadius: 14, padding: "14px 20px", marginBottom: 18,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: theme.teal, fontFamily: "Fraunces" }}>+{pointsEarned}</div>
+            <div style={{ fontSize: 11, color: theme.teal, opacity: 0.8 }}>Serenity Points</div>
+          </div>
+          <div style={{ width: 1, height: 36, background: `${theme.teal}44` }} />
+          <div>
+            <div style={{ fontSize: 22 }}>{lvl.icon}</div>
+            <div style={{ fontSize: 11, color: theme.teal, opacity: 0.8 }}>{lvl.title}</div>
+          </div>
+        </div>
+
+        <button className="btn-primary" onClick={onClose} style={{ background: theme.teal, color: "#0D1117" }}>
+          Continuar →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pantalla: Objetivos ───────────────────────────────────────────────────────
+function TasksScreen({ tasks, taskLogs, totalPoints, awardedPeriods, onAddTask, onLogProgress, onDeleteTask }) {
+  const [view, setView] = useState("main");
+  const [browseCat, setBrowseCat] = useState("TCC");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showLog, setShowLog] = useState(false);
+  const [logAmount, setLogAmount] = useState(1);
+  const [logNote, setLogNote] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const [form, setForm] = useState({
+    title: "", category: "Personalizada", icon: "✨",
+    period: "diario", targetAmount: 1, unit: "sesión", points: 10, description: "",
+  });
+
+  const lvl = getCurrentLevel(totalPoints);
+  const nextLvl = getNextLevel(totalPoints);
+  const mk = getMonthKey();
+
+  const monthCompletions = awardedPeriods.filter(k => {
+    const pk = k.split("::")[1];
+    if (!pk) return false;
+    return (pk.length === 10 && pk.startsWith(mk)) || (pk.length === 7 && pk === mk);
+  }).length;
+
+  const monthPoints = awardedPeriods
+    .filter(k => {
+      const pk = k.split("::")[1];
+      if (!pk) return false;
+      return (pk.length === 10 && pk.startsWith(mk)) || (pk.length === 7 && pk === mk);
+    })
+    .reduce((sum, k) => {
+      const t = tasks.find(x => x.id === k.split("::")[0]);
+      return sum + (t?.points || 0);
+    }, 0);
+
+  const activeTasks = tasks.filter(t => t.isActive);
+
+  const handleAddSuggestion = (s) => {
+    if (tasks.some(t => t.templateId === s.id)) { setView("main"); return; }
+    onAddTask({
+      id: genId(), templateId: s.id, title: s.title, category: s.category, icon: s.icon,
+      description: s.desc, period: s.period, targetAmount: s.targetAmount,
+      unit: s.unit, points: s.points, isActive: true, createdAt: today(),
+    });
+    setView("main");
+  };
+
+  const handleCreate = () => {
+    if (!form.title.trim()) return;
+    onAddTask({
+      id: genId(), templateId: null, title: form.title.trim(), category: form.category, icon: form.icon,
+      description: form.description, period: form.period,
+      targetAmount: Number(form.targetAmount) || 1, unit: form.unit || "sesión",
+      points: Number(form.points) || 10, isActive: true, createdAt: today(),
+    });
+    setForm({ title: "", category: "Personalizada", icon: "✨", period: "diario", targetAmount: 1, unit: "sesión", points: 10, description: "" });
+    setView("main");
+  };
+
+  const openLog = (task) => {
+    setSelectedTask(task);
+    setLogAmount(["minutos", "horas"].includes(task.unit) ? "" : 1);
+    setLogNote("");
+    setShowLog(true);
+  };
+
+  const handleLog = () => {
+    if (!selectedTask) return;
+    onLogProgress(selectedTask.id, Number(logAmount) || 1, logNote);
+    setShowLog(false);
+  };
+
+  // ── Vista principal ──────────────────────────────────────────────────────────
+  if (view === "main") {
+    const lvlPct = nextLvl
+      ? Math.min(100, ((totalPoints - lvl.minPoints) / (nextLvl.minPoints - lvl.minPoints)) * 100)
+      : 100;
+    const ptsToNext = nextLvl ? nextLvl.minPoints - totalPoints : 0;
+
+    return (
+      <div style={{ padding: "24px 20px" }}>
+        {/* Nivel y puntos */}
+        <div className="card" style={{
+          marginBottom: 20,
+          background: `linear-gradient(135deg, ${lvl.color}18, ${theme.surface})`,
+          border: `1px solid ${lvl.color}44`,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+            <div>
+              <p className="label" style={{ marginBottom: 6 }}>Tu nivel</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 28 }}>{lvl.icon}</span>
+                <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "Fraunces", color: lvl.color }}>{lvl.title}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p className="label" style={{ marginBottom: 6 }}>Serenity Points</p>
+              <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "Fraunces", color: lvl.color }}>{totalPoints}</span>
+            </div>
+          </div>
+          {nextLvl && (
+            <>
+              <ProgressBar value={totalPoints - lvl.minPoints} max={nextLvl.minPoints - lvl.minPoints} color={lvl.color} />
+              <p style={{ fontSize: 11, color: theme.textMuted, marginTop: 6 }}>
+                {ptsToNext} pts para {nextLvl.icon} {nextLvl.title}
+              </p>
+            </>
+          )}
+          {!nextLvl && (
+            <p style={{ fontSize: 12, color: lvl.color, marginTop: 4 }}>✨ Nivel máximo alcanzado</p>
+          )}
+        </div>
+
+        {/* Resumen mensual */}
+        <button onClick={() => setView("summary")} style={{
+          width: "100%", background: theme.surface, border: `1px solid ${theme.border}`,
+          borderRadius: 14, padding: "14px 16px", textAlign: "left",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 24, cursor: "pointer",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: theme.amberSoft, display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: 20,
+            }}>📊</div>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600 }}>Resumen mensual</p>
+              <p style={{ fontSize: 12, color: theme.textMuted }}>
+                {monthCompletions} logros · {monthPoints} pts en {fmtMonthName()}
+              </p>
+            </div>
+          </div>
+          <span style={{ color: theme.textMuted, fontSize: 18 }}>›</span>
+        </button>
+
+        {/* Prácticas activas */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Mis prácticas activas</h3>
+          <span style={{ fontSize: 12, color: theme.textMuted }}>{activeTasks.length} activas</span>
+        </div>
+
+        {activeTasks.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "36px 20px", color: theme.textMuted }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+            <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: theme.text }}>Sin prácticas activas</p>
+            <p style={{ fontSize: 13, lineHeight: 1.7 }}>
+              Añade prácticas terapéuticas basadas en evidencia o crea las tuyas personalizadas
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+            {activeTasks.map(task => {
+              const progress   = getTaskProgress(task, taskLogs);
+              const complete   = progress >= task.targetAmount;
+              const cat        = getCategoryInfo(task.category);
+              const pct        = Math.min(100, (progress / task.targetAmount) * 100);
+              const awardKey   = `${task.id}::${getPeriodKey(task.period)}`;
+              const wasAwarded = awardedPeriods.includes(awardKey);
+              const isConfirmDelete = deleteTarget === task.id;
+
+              return (
+                <div key={task.id} className="card" style={{
+                  border: `1px solid ${complete ? cat.color + "55" : theme.border}`,
+                  background: complete ? `linear-gradient(135deg, ${cat.color}08, ${theme.surface})` : theme.surface,
+                }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 12, background: cat.colorSoft,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 22, flexShrink: 0,
+                    }}>{task.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{task.title}</p>
+                        <span style={{ fontSize: 12, color: complete ? cat.color : theme.textMuted, fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
+                          {complete ? "✓" : `${progress}/${task.targetAmount}`}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <Badge label={task.category} color={cat.color} bg={cat.colorSoft} />
+                        <Badge
+                          label={task.period === "diario" ? "Diario" : task.period === "semanal" ? "Semanal" : task.period === "mensual" ? "Mensual" : "Objetivo"}
+                          color={theme.textMuted} bg={theme.surfaceAlt}
+                        />
+                        <Badge label={`⭐ ${task.points} pts`} color={theme.amber} bg={theme.amberSoft} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, color: theme.textMuted }}>
+                        {progress} de {task.targetAmount} {task.unit}
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: complete ? cat.color : theme.textMuted }}>
+                        {Math.round(pct)}%
+                      </span>
+                    </div>
+                    <ProgressBar value={progress} max={task.targetAmount} color={cat.color} />
+                  </div>
+
+                  {complete && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 10px", background: `${cat.color}15`,
+                      borderRadius: 8, marginBottom: 10,
+                    }}>
+                      <span style={{ fontSize: 14 }}>🌟</span>
+                      <span style={{ fontSize: 12, color: cat.color, fontWeight: 500 }}>
+                        {wasAwarded ? `+${task.points} pts ganados este período` : "¡Completo! Registra avance para recibir puntos"}
+                      </span>
+                    </div>
+                  )}
+
+                  {isConfirmDelete ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setDeleteTarget(null)} style={{
+                        flex: 1, background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+                        borderRadius: 10, padding: 10, fontSize: 13, color: theme.textMuted, cursor: "pointer",
+                      }}>Cancelar</button>
+                      <button onClick={() => { onDeleteTask(task.id); setDeleteTarget(null); }} style={{
+                        flex: 1, background: theme.roseSoft, border: `1px solid ${theme.rose}55`,
+                        borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600, color: theme.rose, cursor: "pointer",
+                      }}>Sí, eliminar</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => openLog(task)} style={{
+                        flex: 1, background: cat.colorSoft, border: `1px solid ${cat.color}55`,
+                        borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600,
+                        color: cat.color, cursor: "pointer",
+                      }}>+ Registrar avance</button>
+                      <button onClick={() => setDeleteTarget(task.id)} style={{
+                        background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+                        borderRadius: 10, padding: "10px 14px", color: theme.textDim,
+                        fontSize: 16, cursor: "pointer",
+                      }}>×</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button className="btn-primary" onClick={() => setView("browse")}>
+            Explorar prácticas sugeridas
+          </button>
+          <button className="btn-ghost" onClick={() => { setView("browse"); setBrowseCat("Personalizada"); }}>
+            + Crear práctica personalizada
+          </button>
+        </div>
+
+        {/* Modal: Registrar avance */}
+        {showLog && selectedTask && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(13,17,23,0.88)", zIndex: 200,
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
+          }}>
+            <div className="fade-up" style={{
+              background: theme.surface, borderRadius: "24px 24px 0 0",
+              padding: "28px 24px 40px", width: "100%", maxWidth: 430,
+              border: `1px solid ${theme.border}`,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 600 }}>Registrar avance</h3>
+                <button onClick={() => setShowLog(false)} style={{
+                  background: "transparent", border: "none", color: theme.textMuted, fontSize: 26, cursor: "pointer",
+                }}>×</button>
+              </div>
+
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10, marginBottom: 22,
+                padding: 12, background: theme.surfaceAlt, borderRadius: 12,
+              }}>
+                <span style={{ fontSize: 24 }}>{selectedTask.icon}</span>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600 }}>{selectedTask.title}</p>
+                  <p style={{ fontSize: 12, color: theme.textMuted }}>
+                    Meta: {selectedTask.targetAmount} {selectedTask.unit} ·{" "}
+                    {selectedTask.period === "diario" ? "por día" : selectedTask.period === "semanal" ? "por semana" : "por mes"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="label" style={{ marginBottom: 10 }}>¿Cuánto completaste?</p>
+
+              {["minutos", "horas"].includes(selectedTask.unit) ? (
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18 }}>
+                  <input
+                    type="number" min="1" value={logAmount}
+                    onChange={e => setLogAmount(e.target.value)}
+                    placeholder="0"
+                    style={{ width: 100, textAlign: "center", fontSize: 26, fontWeight: 700, fontFamily: "Fraunces", padding: 12 }}
+                  />
+                  <div>
+                    <p style={{ color: theme.text, fontSize: 15, fontWeight: 600 }}>{selectedTask.unit}</p>
+                    <p style={{ color: theme.textMuted, fontSize: 12 }}>meta: {selectedTask.targetAmount}</p>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+                  <button onClick={() => setLogAmount(a => Math.max(1, Number(a) - 1))} style={{
+                    width: 48, height: 48, borderRadius: 12, background: theme.surfaceAlt,
+                    border: `1px solid ${theme.border}`, fontSize: 24, color: theme.text, cursor: "pointer",
+                  }}>−</button>
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 36, fontWeight: 700, fontFamily: "Fraunces", color: theme.text }}>{logAmount}</div>
+                    <p style={{ fontSize: 13, color: theme.textMuted }}>{selectedTask.unit}</p>
+                  </div>
+                  <button onClick={() => setLogAmount(a => Number(a) + 1)} style={{
+                    width: 48, height: 48, borderRadius: 12, background: theme.surfaceAlt,
+                    border: `1px solid ${theme.border}`, fontSize: 24, color: theme.text, cursor: "pointer",
+                  }}>+</button>
+                </div>
+              )}
+
+              <textarea
+                placeholder="Nota opcional (¿cómo te sentiste? ¿qué notaste?)"
+                value={logNote} onChange={e => setLogNote(e.target.value)}
+                style={{ height: 70, marginBottom: 16 }}
+              />
+
+              <button className="btn-primary" onClick={handleLog}>Guardar avance</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Vista: Explorar sugerencias ──────────────────────────────────────────────
+  if (view === "browse") {
+    const catInfo = getCategoryInfo(browseCat);
+    const suggestions = TASK_SUGGESTIONS.filter(s => s.category === browseCat);
+    const diffColor = { "Fácil": theme.teal, "Moderado": theme.amber, "Avanzado": theme.rose };
+
+    return (
+      <div style={{ padding: "24px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <button onClick={() => setView("main")} style={{
+            background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+            borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center",
+            justifyContent: "center", color: theme.text, fontSize: 16, cursor: "pointer",
+          }}>←</button>
+          <h2 style={{ fontSize: 18, fontWeight: 600 }}>Explorar prácticas</h2>
+        </div>
+
+        {/* Pills de categoría */}
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12, marginBottom: 20, scrollbarWidth: "none" }}>
+          {TASK_CATEGORIES.map(c => (
+            <button key={c.id} onClick={() => setBrowseCat(c.id)} style={{
+              flexShrink: 0, padding: "8px 14px", borderRadius: 100, fontSize: 12,
+              fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+              background: browseCat === c.id ? c.colorSoft : "transparent",
+              border: `1px solid ${browseCat === c.id ? c.color : theme.border}`,
+              color: browseCat === c.id ? c.color : theme.textMuted,
+            }}>
+              {c.icon} {c.id}
+            </button>
+          ))}
+        </div>
+
+        {/* Info de categoría */}
+        <div style={{
+          background: catInfo.colorSoft, border: `1px solid ${catInfo.color}44`,
+          borderRadius: 14, padding: "14px 16px", marginBottom: 20,
+        }}>
+          <p style={{ fontWeight: 700, fontSize: 15, color: catInfo.color, marginBottom: 4 }}>{catInfo.full}</p>
+          <p style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.55 }}>{catInfo.desc}</p>
+        </div>
+
+        {browseCat === "Personalizada" ? (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 48, marginBottom: 14 }}>✨</div>
+            <p style={{ color: theme.text, fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Diseña tu práctica</p>
+            <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 14, lineHeight: 1.65 }}>
+              Crea una práctica completamente adaptada a tus necesidades, ritmo y caso particular
+            </p>
+            <button className="btn-primary" onClick={() => setView("create")}>
+              Crear práctica personalizada
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {suggestions.map(s => {
+              const alreadyAdded = tasks.some(t => t.templateId === s.id);
+              const dc = diffColor[s.difficulty] || theme.textMuted;
+              return (
+                <div key={s.id} className="card">
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 12, background: catInfo.colorSoft,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 22, flexShrink: 0,
+                    }}>{s.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{s.title}</p>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, flexShrink: 0, marginLeft: 8,
+                          color: dc, background: `${dc}22`, borderRadius: 100, padding: "2px 8px",
+                        }}>{s.difficulty}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.55 }}>{s.desc}</p>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: theme.surfaceAlt, borderRadius: 10,
+                    padding: "8px 12px", marginBottom: 12,
+                  }}>
+                    <p style={{ fontSize: 11, color: catInfo.color, lineHeight: 1.5 }}>🔬 {s.science}</p>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12, color: theme.textMuted }}>⏱ {s.duration}</span>
+                      <span style={{ fontSize: 12, color: theme.amber }}>⭐ {s.points} pts</span>
+                      <span style={{ fontSize: 12, color: theme.textMuted }}>
+                        {s.period === "diario" ? "Diario" : s.period === "semanal" ? "Semanal" : "Mensual"}:
+                        {" "}{s.targetAmount} {s.unit}
+                      </span>
+                    </div>
+                    <button onClick={() => handleAddSuggestion(s)} disabled={alreadyAdded} style={{
+                      padding: "8px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      cursor: alreadyAdded ? "default" : "pointer",
+                      background: alreadyAdded ? theme.surfaceAlt : catInfo.colorSoft,
+                      border: `1px solid ${alreadyAdded ? theme.border : catInfo.color + "55"}`,
+                      color: alreadyAdded ? theme.textMuted : catInfo.color,
+                    }}>
+                      {alreadyAdded ? "✓ Añadida" : "+ Añadir"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Vista: Crear práctica personalizada ──────────────────────────────────────
+  if (view === "create") {
+    const formCat = getCategoryInfo(form.category);
+    return (
+      <div style={{ padding: "24px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <button onClick={() => setView("browse")} style={{
+            background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+            borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center",
+            justifyContent: "center", color: theme.text, fontSize: 16, cursor: "pointer",
+          }}>←</button>
+          <h2 style={{ fontSize: 18, fontWeight: 600 }}>Nueva práctica</h2>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Nombre de la práctica</p>
+            <input type="text" placeholder="Ej: Journaling de gratitud"
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Icono</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {ICON_OPTIONS.map(ico => (
+                <button key={ico} onClick={() => setForm(f => ({ ...f, icon: ico }))} style={{
+                  width: 44, height: 44, borderRadius: 10, fontSize: 20, cursor: "pointer",
+                  background: form.icon === ico ? theme.accentSoft : theme.surfaceAlt,
+                  border: `1px solid ${form.icon === ico ? theme.accent : theme.border}`,
+                }}>{ico}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Enfoque terapéutico</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {TASK_CATEGORIES.map(c => (
+                <button key={c.id} onClick={() => setForm(f => ({ ...f, category: c.id }))}
+                  className={`chip ${form.category === c.id ? "selected" : ""}`}
+                  style={form.category === c.id ? {
+                    background: c.colorSoft, borderColor: c.color, color: c.color,
+                  } : {}}>
+                  {c.icon} {c.id}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Frecuencia</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[["diario","Diaria"],["semanal","Semanal"],["mensual","Mensual"],["objetivo","Objetivo único"]].map(([v, l]) => (
+                <button key={v} onClick={() => setForm(f => ({ ...f, period: v }))}
+                  className={`chip ${form.period === v ? "selected" : ""}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Meta por período</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input type="number" min="1" value={form.targetAmount}
+                onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))}
+                style={{ width: 80, textAlign: "center" }} />
+              <input type="text" placeholder="sesiones / minutos / veces..."
+                value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                style={{ flex: 1 }} />
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Puntos al completar el período</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[5, 10, 15, 20, 25, 30].map(p => (
+                <button key={p} onClick={() => setForm(f => ({ ...f, points: p }))} style={{
+                  flex: 1, padding: "10px 4px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  cursor: "pointer",
+                  background: form.points === p ? theme.amberSoft : theme.surfaceAlt,
+                  border: `1px solid ${form.points === p ? theme.amber : theme.border}`,
+                  color: form.points === p ? theme.amber : theme.textMuted,
+                }}>{p}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="label" style={{ marginBottom: 8 }}>Descripción (opcional)</p>
+            <textarea placeholder="¿Por qué es importante para ti esta práctica?"
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              style={{ height: 80 }} />
+          </div>
+
+          <button className="btn-primary" onClick={handleCreate}
+            style={{ opacity: form.title.trim() ? 1 : 0.4 }}>
+            Crear práctica
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Vista: Resumen mensual ───────────────────────────────────────────────────
+  if (view === "summary") {
+    const now = new Date();
+    const mk = getMonthKey(now);
+
+    const taskSummaries = tasks.map(task => {
+      const completionKeys = awardedPeriods.filter(k => {
+        const [tid, pk] = k.split("::");
+        if (tid !== task.id || !pk) return false;
+        return (pk.length === 10 && pk.startsWith(mk)) || (pk.length === 7 && pk === mk);
+      });
+      const monthLogs = taskLogs.filter(l => l.taskId === task.id && l.date.startsWith(mk));
+      return {
+        task,
+        completions: completionKeys.length,
+        logCount: monthLogs.length,
+        pointsEarned: completionKeys.length * task.points,
+      };
+    }).filter(s => s.logCount > 0 || s.completions > 0);
+
+    const totalMoPts = taskSummaries.reduce((s, t) => s + t.pointsEarned, 0);
+    const totalCompl = taskSummaries.reduce((s, t) => s + t.completions, 0);
+
+    const allDates = [...new Set(
+      taskLogs.filter(l => l.date.startsWith(mk)).map(l => l.date)
+    )].sort();
+    let maxStreak = 0, curStreak = 0, prevDate = null;
+    for (const d of allDates) {
+      if (prevDate) {
+        const diff = (new Date(d + "T12:00:00") - new Date(prevDate + "T12:00:00")) / 86400000;
+        if (diff === 1) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
+        else curStreak = 1;
+      } else { curStreak = 1; maxStreak = 1; }
+      prevDate = d;
+    }
+
+    const feedbackMsg = totalCompl >= 15
+      ? { title: "Mes excepcional", body: "Estás construyendo nuevos circuitos neurales de calma. La neuroplasticidad trabaja para ti.", icon: "🏆" }
+      : totalCompl >= 8
+      ? { title: "Gran mes", body: "La consistencia es el ingrediente más poderoso del cambio. Cada logro recablea tu respuesta al estrés.", icon: "⭐" }
+      : totalCompl >= 3
+      ? { title: "Buen arranque", body: "Todo cambio duradero empieza con pequeños pasos. Tu sistema nervioso ya está respondiendo.", icon: "🌱" }
+      : { title: "Empieza hoy", body: "Añade una práctica y registra tu primer avance. El cerebro cambia cuando actuamos, no cuando planeamos.", icon: "💡" };
+
+    return (
+      <div style={{ padding: "24px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <button onClick={() => setView("main")} style={{
+            background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+            borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center",
+            justifyContent: "center", color: theme.text, fontSize: 16, cursor: "pointer",
+          }}>←</button>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 600 }}>Resumen mensual</h2>
+            <p style={{ fontSize: 12, color: theme.textMuted }}>{fmtMonthName(now)}</p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+          {[
+            { label: "Puntos", value: totalMoPts, icon: "⭐", color: theme.amber },
+            { label: "Logros",  value: totalCompl, icon: "✅", color: theme.teal },
+            { label: "Racha",   value: `${maxStreak}d`, icon: "🔥", color: theme.rose },
+          ].map((s, i) => (
+            <div key={i} className="card-sm" style={{ textAlign: "center", border: `1px solid ${s.color}33` }}>
+              <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "Fraunces", color: s.color }}>{s.value}</div>
+              <div className="label" style={{ marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {taskSummaries.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "36px 0", color: theme.textMuted }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📊</div>
+            <p style={{ fontWeight: 600, color: theme.text, marginBottom: 6 }}>Sin registros este mes</p>
+            <p style={{ fontSize: 13, lineHeight: 1.65 }}>Registra avances en tus prácticas para ver el resumen aquí.</p>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Prácticas este mes</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+              {taskSummaries.sort((a, b) => b.completions - a.completions).map(({ task, completions, logCount, pointsEarned }) => {
+                const cat = getCategoryInfo(task.category);
+                return (
+                  <div key={task.id} className="card-sm" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10, background: cat.colorSoft,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 20, flexShrink: 0,
+                    }}>{task.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: 13 }}>{task.title}</p>
+                      <p style={{ fontSize: 12, color: theme.textMuted }}>
+                        {logCount} registros · {completions} período{completions !== 1 ? "s" : ""} completo{completions !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      {completions > 0
+                        ? <span style={{ fontSize: 13, fontWeight: 700, color: theme.amber }}>+{pointsEarned} pts</span>
+                        : <span style={{ fontSize: 12, color: theme.textMuted }}>En progreso</span>
+                      }
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div style={{
+          background: theme.tealSoft, border: `1px solid ${theme.teal}44`,
+          borderRadius: 16, padding: "18px 16px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>{feedbackMsg.icon}</div>
+          <p style={{ fontSize: 15, fontWeight: 700, color: theme.teal, marginBottom: 6 }}>{feedbackMsg.title}</p>
+          <p style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.7 }}>{feedbackMsg.body}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // ─── App principal ─────────────────────────────────────────────────────────────
 export default function App() {
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem("anxietyapp_v1");
-      return saved ? JSON.parse(saved) : INITIAL_STATE;
+      const parsed = saved ? JSON.parse(saved) : INITIAL_STATE;
+      return {
+        ...INITIAL_STATE,
+        ...parsed,
+        tasks: parsed.tasks || [],
+        taskLogs: parsed.taskLogs || [],
+        totalPoints: parsed.totalPoints || 0,
+        awardedPeriods: parsed.awardedPeriods || [],
+      };
     } catch { return INITIAL_STATE; }
   });
 
@@ -1661,6 +2523,7 @@ export default function App() {
   const [activeTechnique, setActiveTechnique] = useState(null);
   const [showCrisis, setShowCrisis] = useState(false);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [celebration, setCelebration] = useState(null);
 
   const isOnboarded = !!state.profile.joinDate;
 
@@ -1704,6 +2567,50 @@ export default function App() {
       };
     });
     setShowCheckIn(false);
+  };
+
+  const handleAddTask = (task) => {
+    setState(s => ({ ...s, tasks: [...s.tasks, task] }));
+  };
+
+  const handleLogProgress = (taskId, amount, note) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newLog = {
+      id: genId(), taskId, date: today(),
+      amount: Number(amount) || 1, note: note || "",
+      timestamp: Date.now(),
+    };
+    const hypoLogs = [...state.taskLogs, newLog];
+    const periodKey = getPeriodKey(task.period);
+    const awardKey = `${taskId}::${periodKey}`;
+    const awarded = state.awardedPeriods || [];
+
+    let pointsEarned = 0;
+    let shouldAward = false;
+    if (!awarded.includes(awardKey)) {
+      const progress = getTaskProgress(task, hypoLogs);
+      if (progress >= task.targetAmount) {
+        pointsEarned = task.points;
+        shouldAward = true;
+      }
+    }
+
+    setState(s => ({
+      ...s,
+      taskLogs: [...s.taskLogs, newLog],
+      totalPoints: s.totalPoints + pointsEarned,
+      awardedPeriods: shouldAward ? [...(s.awardedPeriods || []), awardKey] : (s.awardedPeriods || []),
+    }));
+
+    if (shouldAward) {
+      setCelebration({ task, pointsEarned });
+    }
+  };
+
+  const handleDeleteTask = (taskId) => {
+    setState(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== taskId) }));
   };
 
   const navigate = (dest, payload = null) => {
@@ -1771,16 +2678,25 @@ export default function App() {
   }
 
   const navItems = [
-    { id: "home", icon: "🏠", label: "Inicio" },
-    { id: "checkin", icon: "✏️", label: "Check-in" },
-    { id: "techniques", icon: "🧘", label: "Técnicas" },
-    { id: "progress", icon: "📊", label: "Progreso" },
-    { id: "learn", icon: "📚", label: "Aprende" },
+    { id: "home",      icon: "🏠", label: "Inicio" },
+    { id: "checkin",   icon: "✏️", label: "Diario" },
+    { id: "techniques",icon: "🧘", label: "Técnicas" },
+    { id: "objetivos", icon: "🎯", label: "Objetivos" },
+    { id: "progress",  icon: "📊", label: "Progreso" },
+    { id: "learn",     icon: "📚", label: "Aprende" },
   ];
 
   return (
     <>
       <GlobalStyle />
+      {celebration && (
+        <CelebrationModal
+          task={celebration.task}
+          pointsEarned={celebration.pointsEarned}
+          totalPoints={state.totalPoints}
+          onClose={() => setCelebration(null)}
+        />
+      )}
       <div className="app-shell">
         <div className="screen">
           {screen === "home" && (
@@ -1793,6 +2709,17 @@ export default function App() {
           )}
           {screen === "techniques" && (
             <TechniquesScreen onNavigate={navigate} />
+          )}
+          {screen === "objetivos" && (
+            <TasksScreen
+              tasks={state.tasks}
+              taskLogs={state.taskLogs}
+              totalPoints={state.totalPoints}
+              awardedPeriods={state.awardedPeriods || []}
+              onAddTask={handleAddTask}
+              onLogProgress={handleLogProgress}
+              onDeleteTask={handleDeleteTask}
+            />
           )}
           {screen === "progress" && (
             <ProgressScreen state={state} />

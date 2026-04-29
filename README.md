@@ -1,13 +1,55 @@
-# 🌿 Serenity — App de Control de Ansiedad
+# Serenity — App de Control de Ansiedad
 
-App Android (PWA + Capacitor) para controlar y reducir la ansiedad con técnicas de neurociencia y psicoanálisis.
+App Android (PWA + Capacitor) para controlar y reducir la ansiedad con técnicas basadas en neurociencia, psicoanálisis y terapias de tercera generación. Completamente offline, sin backend, sin APIs externas.
 
 ---
 
-## 📋 Requisitos previos
+## Funcionalidades
+
+### Pantallas principales
+
+| Pantalla | Descripción |
+|----------|-------------|
+| **Inicio** | Panel con racha, sesiones, técnicas rápidas y estadísticas del día |
+| **Diario** | Check-in diario: nivel de ansiedad (1–5), disparadores y notas |
+| **Técnicas** | 5 técnicas guiadas de respiración y anclaje cognitivo |
+| **Objetivos** | Sistema de prácticas terapéuticas con tracking y recompensas |
+| **Progreso** | Historial, gráficas de tendencia y disparadores frecuentes |
+| **Aprende** | Artículos de neurociencia y psicoanálisis aplicados |
+
+### Sistema de Objetivos y Prácticas
+
+El módulo central nuevo. Permite al usuario:
+
+- **Explorar prácticas sugeridas** organizadas por enfoque terapéutico:
+  - TCC (Terapia Cognitivo-Conductual) — diario de pensamientos, exposición gradual, activación conductual
+  - ACT (Aceptación y Compromiso) — clarificación de valores, defusión cognitiva, acción comprometida
+  - DBT (Dialéctico-Conductual) — habilidad TIPP, mindfulness DBT, regulación emocional
+  - Neurociencia Aplicada — coherencia cardíaca, estimulación vagal, NSDR/Yoga Nidra, luz solar matutina
+  - Hipnoterapia Guiada — relajación hipnótica, anclaje positivo neurolingüístico
+  - Mindfulness / MBSR — meditación de atención plena, caminata consciente
+
+- **Crear prácticas personalizadas** con frecuencia libre (diaria, semanal, mensual, objetivo único), unidad de medida libre (minutos, sesiones, veces, etc.) y meta parametrizable
+
+- **Registrar avance** por período: contador incremental para prácticas contables, campo numérico para prácticas de tiempo (minutos/horas)
+
+- **Sistema de recompensas** basado en el circuito dopaminérgico mesolímbico:
+  - 5 niveles: Aprendiz → Practicante → Comprometido → Maestro → Sabio
+  - Puntos (Serenity Points) por cada período completado
+  - Modal de celebración con mensajes neurocientíficos al alcanzar cada objetivo
+  - Prevención de doble recompensa por período ya acreditado
+
+- **Resumen mensual** con métricas de puntos, logros, racha máxima y análisis adaptativo
+
+### Modo Crisis
+Protocolo de 3 fases con respiración de emergencia guiada y técnica de grounding 5-4-3-2-1. Accesible vía botón flotante desde la pantalla de inicio.
+
+---
+
+## Requisitos previos
 
 | Herramienta | Versión mínima | Descarga |
-|-------------|---------------|---------|
+|-------------|----------------|---------|
 | Node.js | 18+ | [nodejs.org](https://nodejs.org) |
 | Android Studio | Flamingo+ | [developer.android.com/studio](https://developer.android.com/studio) |
 | JDK | 17+ | Incluido en Android Studio |
@@ -15,7 +57,7 @@ App Android (PWA + Capacitor) para controlar y reducir la ansiedad con técnicas
 
 ---
 
-## 🚀 Cómo compilar el APK
+## Cómo compilar el APK
 
 ### Opción A — Script automático (recomendado)
 
@@ -40,8 +82,7 @@ npm run build
 npx cap sync android
 
 # 4. Compilar APK debug
-cd android
-./gradlew assembleDebug
+cd android && ./gradlew assembleDebug
 
 # El APK queda en:
 # android/app/build/outputs/apk/debug/app-debug.apk
@@ -52,57 +93,54 @@ cd android
 ```bash
 npm run build
 npx cap sync android
-npx cap open android   # Abre Android Studio
+npx cap open android
 ```
-Luego en Android Studio: **Build → Build Bundle(s)/APK(s) → Build APK(s)**
+
+Luego: **Build → Build Bundle(s)/APK(s) → Build APK(s)**
 
 ---
 
-## 📱 Instalar en el teléfono
+## Comandos de desarrollo
+
+```bash
+npm run dev            # Dev server con hot reload en localhost:5173
+npm run build          # Build de producción → /dist
+npm run preview        # Preview del build de producción
+npm run build:android  # Build web + sync Capacitor assets
+npm run apk:debug      # Genera APK debug (ejecuta build:android primero)
+npm run apk:release    # Genera APK de release firmado
+```
+
+---
+
+## Instalar en el teléfono
 
 ```bash
 # Via USB (con USB Debugging activado)
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 
-# O simplemente copia el .apk al teléfono y ábrelo
+# O copia el .apk al teléfono y ábrelo desde el explorador de archivos
 ```
 
 ---
 
-## 🔄 Flujo de desarrollo
-
-```bash
-# Desarrollo con hot reload
-npm run dev
-
-# Cuando cambias código React → rebuild → sync
-npm run build:android    # = npm run build + npx cap sync android
-
-# Si agregas plugins Capacitor
-npm install @capacitor/plugin-name
-npx cap sync android
-```
-
----
-
-## 📂 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 serenity-anxiety-app/
 ├── src/
-│   ├── App.jsx          ← App completa React
-│   └── main.jsx         ← Entry point
+│   ├── App.jsx          ← App completa React (~2700 líneas, monolítica)
+│   └── main.jsx         ← Entry point + init Capacitor plugins
 ├── public/
 │   ├── manifest.json    ← PWA manifest
 │   ├── icons/           ← Iconos app (72→512px)
 │   └── icon.svg         ← Icono vectorial
 ├── android/             ← Proyecto Android nativo (Capacitor)
-│   ├── app/
-│   │   └── src/main/
-│   │       ├── AndroidManifest.xml
-│   │       └── res/     ← Recursos, iconos, colores
-│   └── gradlew          ← Gradle wrapper
-├── dist/                ← Build web (generado)
+│   ├── app/src/main/
+│   │   ├── AndroidManifest.xml
+│   │   └── res/         ← Recursos, splash screens, iconos
+│   └── gradlew
+├── dist/                ← Build web (generado por Vite)
 ├── capacitor.config.json
 ├── vite.config.js
 ├── BUILD.sh             ← Script build automatizado
@@ -111,30 +149,52 @@ serenity-anxiety-app/
 
 ---
 
-## 🎨 Personalización
+## Arquitectura
+
+Todo el código UI vive en `src/App.jsx`. No hay router ni state manager externo.
+
+**Navegación:** variable `screen` (string) controlada con `setScreen()`. Pantallas: `home`, `techniques`, `objetivos`, `progress`, `learn`. Check-in y Crisis son overlays sobre cualquier pantalla.
+
+**Persistencia:** `localStorage` con clave `anxietyapp_v1`. Forma del estado:
+
+```javascript
+{
+  profile: { name, streak, totalSessions, joinDate },
+  logs: [{ date, level, triggers, notes, timestamp }],
+  tasks: [{ id, templateId, title, category, icon, period, targetAmount, unit, points, isActive, createdAt }],
+  taskLogs: [{ id, taskId, date, amount, note, timestamp }],
+  totalPoints: number,
+  awardedPeriods: ["taskId::periodKey", ...],
+  currentCrisis: boolean
+}
+```
+
+**Escala de ansiedad:** 1 = Crisis, 5 = Tranquilo (escala invertida respecto a la intuición típica).
+
+---
+
+## Personalización
 
 ### Cambiar nombre de la app
 - `android/app/src/main/res/values/strings.xml` → `app_name`
 - `capacitor.config.json` → `appName`
 - `public/manifest.json` → `name` / `short_name`
 
-### Cambiar ID de la app (para publicar en Play Store)
+### Cambiar ID de la app (para Play Store)
 - `capacitor.config.json` → `appId`
 - `android/app/build.gradle` → `applicationId`
 - `android/app/src/main/AndroidManifest.xml` → actualizar provider authority
 
 ### Agregar iconos reales
-Reemplaza los archivos en `public/icons/` con tus iconos PNG reales:
-- `icon-72.png`, `icon-96.png`, `icon-128.png`, `icon-192.png`, `icon-512.png`
+Reemplaza los archivos en `public/icons/` con tus PNGs:
 
-Luego genera los recursos Android con:
 ```bash
 npx @capacitor/assets generate --android
 ```
 
 ---
 
-## 🏪 Publicar en Google Play Store
+## Publicar en Google Play Store
 
 1. Genera un keystore de firma:
 ```bash
@@ -154,9 +214,7 @@ android {
     }
   }
   buildTypes {
-    release {
-      signingConfig signingConfigs.release
-    }
+    release { signingConfig signingConfigs.release }
   }
 }
 ```
@@ -164,50 +222,51 @@ android {
 3. Compila el release:
 ```bash
 bash BUILD.sh release
+# Salida: android/app/build/outputs/apk/release/app-release.apk
 ```
-
-4. El APK firmado estará en:
-   `android/app/build/outputs/apk/release/app-release.apk`
 
 ---
 
-## 🧩 Plugins Capacitor incluidos
+## Plugins Capacitor incluidos
 
 | Plugin | Uso |
 |--------|-----|
-| `@capacitor/splash-screen` | Pantalla de carga con fondo oscuro |
-| `@capacitor/status-bar` | Barra de estado oscura |
-| `@capacitor/haptics` | Vibración en interacciones clave |
+| `@capacitor/splash-screen` | Pantalla de carga oscura de 2 segundos |
+| `@capacitor/status-bar` | Barra de estado con estilo oscuro |
+| `@capacitor/haptics` | Vibración en botón crisis y técnicas |
 
 ---
 
-## 🐛 Solución de problemas
+## Solución de problemas
 
-**Error: `ANDROID_HOME` no configurado**
+**`ANDROID_HOME` no configurado**
 ```bash
 export ANDROID_HOME=~/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 ```
 
-**Error: `SDK location not found`**
-Crea el archivo `android/local.properties`:
+**`SDK location not found`**
+Crea `android/local.properties`:
 ```
 sdk.dir=/home/TU_USUARIO/Android/Sdk
 ```
 
-**Error: Gradle descarga muy lento**
+**Gradle descarga muy lento**
 ```bash
-# Usa la caché local de Gradle
 cd android && ./gradlew assembleDebug --offline
 ```
 
 ---
 
-## 📊 Info técnica
+## Info técnica
 
-- **Framework**: React 18 + Vite 6
-- **Wrapper nativo**: Capacitor 6
-- **Min SDK**: Android 5.1 (API 22)
-- **Target SDK**: Android 14 (API 34)
-- **Bundle size**: ~183 KB (gzip: ~57 KB)
-- **Datos**: localStorage (offline-first)
+| Item | Valor |
+|------|-------|
+| Framework | React 18 + Vite 6 |
+| Wrapper nativo | Capacitor 6 |
+| Min SDK | Android 5.1 (API 22) |
+| Target SDK | Android 14 (API 34) |
+| Idioma | Español (es-MX) |
+| Datos | localStorage (100% offline) |
+| Bundle size | ~183 KB (gzip ~57 KB) |
+| Tests | Sin framework de tests |
