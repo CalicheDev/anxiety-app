@@ -1,0 +1,26 @@
+{
+  "appId": "com.serenity.anxiety",
+  "appName": "Serenity",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0D1117",
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0D1117",
+      "splashFullScreen": true,
+      "splashImmersive": true,
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "Dark",
+      "backgroundColor": "#0D1117",
+      "overlaysWebView": false
+    }
+  }
+}

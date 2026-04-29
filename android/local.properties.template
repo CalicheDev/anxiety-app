@@ -1,0 +1,12 @@
+## Copia este archivo como local.properties y ajusta la ruta
+## This file must *NOT* be checked into Version Control Systems.
+
+# Windows:
+# sdk.dir=C:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
+
+# Mac:
+# sdk.dir=/Users/TU_USUARIO/Library/Android/sdk
+
+# Linux:
+# sdk.dir=/home/TU_USUARIO/Android/Sdk
+sdk.dir=/home/TU_USUARIO/Android/Sdk

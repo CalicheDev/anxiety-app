@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Gradient: violet → blue → teal (brand palette) -->
+    <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#BC8CFF"/>
+      <stop offset="50%"  stop-color="#58A6FF"/>
+      <stop offset="100%" stop-color="#56D364"/>
+    </linearGradient>
+
+    <!-- Gradient for outer ring -->
+    <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#BC8CFF" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#56D364"  stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- Subtle radial bg -->
+    <radialGradient id="bg" cx="50%" cy="42%" r="60%">
+      <stop offset="0%"   stop-color="#1C2128"/>
+      <stop offset="100%" stop-color="#0D1117"/>
+    </radialGradient>
+
+    <!-- Bloom glow for the wave -->
+    <filter id="bloom" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Subtle glow for dots -->
+    <filter id="dotglow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Clip wave to the inner circle -->
+    <clipPath id="cc">
+      <circle cx="256" cy="256" r="178"/>
+    </clipPath>
+  </defs>
+
+  <!-- ── Background ── -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- ── Outer decorative ring ── -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#rg)" stroke-width="1" opacity="0.6"/>
+
+  <!-- ── Circle container ── -->
+  <circle cx="256" cy="256" r="188" fill="#161B22" stroke="#21262D" stroke-width="2"/>
+
+  <!-- ── Inner guide ring (very subtle) ── -->
+  <circle cx="256" cy="256" r="155" fill="none" stroke="#30363D" stroke-width="1" opacity="0.35"/>
+
+  <!-- ── Dashed center axis ── -->
+  <line x1="78" y1="256" x2="434" y2="256"
+        stroke="#30363D" stroke-width="1" opacity="0.25"
+        stroke-dasharray="5,12" clip-path="url(#cc)"/>
+
+  <!-- ── Wave — bloom layer (soft glow behind) ── -->
+  <g filter="url(#bloom)" clip-path="url(#cc)" opacity="0.45">
+    <path d="M 78,256
+             C 110,256 133,172 165,172
+             C 197,172 219,340 251,340
+             C 283,340 305,172 337,172
+             C 369,172 391,256 423,256"
+          fill="none" stroke="url(#wg)" stroke-width="24" stroke-linecap="round"/>
+  </g>
+
+  <!-- ── Wave — main crisp line ── -->
+  <path clip-path="url(#cc)"
+        d="M 78,256
+           C 110,256 133,172 165,172
+           C 197,172 219,340 251,340
+           C 283,340 305,172 337,172
+           C 369,172 391,256 423,256"
+        fill="none" stroke="url(#wg)" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- ── Accent dots at peaks and trough ── -->
+  <!-- Left peak -->
+  <circle cx="165" cy="172" r="9" fill="#BC8CFF" filter="url(#dotglow)" opacity="0.9"/>
+  <circle cx="165" cy="172" r="5" fill="#e8d8ff" opacity="0.95"/>
+
+  <!-- Trough -->
+  <circle cx="251" cy="340" r="9" fill="#58A6FF" filter="url(#dotglow)" opacity="0.9"/>
+  <circle cx="251" cy="340" r="5" fill="#d0e8ff" opacity="0.95"/>
+
+  <!-- Right peak -->
+  <circle cx="337" cy="172" r="9" fill="#56D364" filter="url(#dotglow)" opacity="0.9"/>
+  <circle cx="337" cy="172" r="5" fill="#d0ffe0" opacity="0.95"/>
+</svg>
